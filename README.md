@@ -44,3 +44,77 @@ Hello, World!
 ### Fitting Web Frameworks with our Web Server
 
 ![alt text](https://ruslanspivak.com/lsbaws-part2/lsbaws_part2_before_wsgi.png "Fits Well")
+
+What if I build a framework that is not compliant with my server?
+
+![alt text](https://ruslanspivak.com/lsbaws-part2/lsbaws_part2_after_wsgi.png "Does Not Fit")
+
+#### Solution: Wizgy
+
+Web server must implement the server portion of a WSGI interface and all modern Python Web Frameworks already implement the framework side of the WSGI interface, 
+which allows you to use them with your Web server without ever modifying your server’s code to accommodate a particular Web framework.  
+
+![alt text](https://ruslanspivak.com/lsbaws-part2/lsbaws_part2_wsgi_interop.png "Does Not Fit")
+
+All we do is handover WSGI compatible app to the WSGI compatible web server
+and voilla, you have your app ready to be served.  
+Let us write a WSGI compatible web server first.  
+`2. WSGIServerEvolution.py` has the necessary code for the WSGI compatible web server.  
+The server expects a WSGI compatible app in arguments.  
+
+Lets write a sample flask app:  
+```python
+from flask import Flask
+from flask import Response
+flask_app = Flask('flaskapp')
+
+
+@flask_app.route('/hello')
+def hello_world():
+    return Response(
+        'Hello world from Flask!\n',
+        mimetype='text/plain'
+    )
+
+app = flask_app.wsgi_app
+```
+
+USAGE:  
+
+```bash
+(venv) $ python 2.\ WSGIServerEvolution.py flaskapp:app
+WSGIServer: Serving HTTP on port 8888 ...
+```
+
+### How it all works?  
+
+![alt text](https://ruslanspivak.com/lsbaws-part2/lsbaws_part2_wsgi_interface.png "WorkFlow")
+
+1. The framework provides an ‘application’ callable (The WSGI specification doesn’t prescribe how that should be implemented)  
+2. The server invokes the ‘application’ callable for each request it receives from an HTTP client. It passes a dictionary ‘environ’ containing WSGI/CGI variables and a ‘start_response’ callable as arguments to the ‘application’ callable.  
+3. The framework/application generates an HTTP status and HTTP response headers and passes them to the ‘start_response’ callable for the server to store them. The framework/application also returns a response body.  
+4. The server combines the status, the response headers, and the response body into an HTTP response and transmits it to the client (This step is not part of the specification but it’s the next logical step in the flow and I added it for clarity)  
+
+### Micro WSGI Framework
+
+```python
+def app(environ, start_response):
+    """A barebones WSGI application.
+
+    This is a starting point for your own Web framework :)
+    """
+    status = '200 OK'
+    response_headers = [('Content-Type', 'text/plain')]
+    start_response(status, response_headers)
+    return [b'Hello world from a simple WSGI application!\n']
+```
+
+Usage:  
+```bash
+(venv) $ python webserver2.py wsgiapp:app
+WSGIServer: Serving HTTP on port 8888 ...
+```
+
+### From Request to Response (The Complete Story)
+
+![alt text](https://ruslanspivak.com/lsbaws-part2/lsbaws_part2_server_summary.png "Request Response Cycle")
